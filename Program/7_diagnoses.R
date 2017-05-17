@@ -1,49 +1,96 @@
 rm(list = ls())
 
+library(dplyr)
+library(data.table)
+
 source("Program/functions.R", encoding = "utf-8")
 BARN = TRUE
-FORALDRAR = FALSE
+FORALDRAR = TRUE
 MFR = TRUE
 MERGE = FALSE
- 
+
+# filter and split data dictionary
+metadata_barn <- metadata %>% 
+  filter(grepl("^barn$|^barn_", Group) & Barnmissh == 1)
+
+# foraldrar
+metadata_foralder <- metadata %>% 
+  filter(grepl("^mor_|^mor$|^far_|^far$", Group) & Barnmissh == 1)
+
 # derive diagnoses in steps. Apply search per source 
 #--------------------------------- PAR BARN ------------------------------------
 if(BARN){
+  system.time({
   par_barn <- readRDS("Output/2_par_barn.rds")
  
   setDT(par_barn)
-  par_barn[,(paste0(metadata$variable, "_parbarn")):=lapply(metadata$search, applySearch, variable = par_barn$DIAGNOS),]
+  par_barn[,(paste0(metadata_barn$variable, "_parbarn")):=lapply(metadata_barn$search, applySearch, variable = par_barn$DIAGNOS),]
   # derive new diagnoses
  
-  par_barn <- par_barn[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "lopnr", .SDcols = paste0(metadata$variable, "_parbarn")]
+  par_barn <- par_barn[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "lopnr", .SDcols = paste0(metadata_barn$variable, "_parbarn")]
   
   par_barn <- data.frame(par_barn)
   saveRDS(par_barn, "Output/7_par_barn.rds")
   rm(par_barn)
   gc()
+  })
 }
 
 #------------------------------- PAR FORALDRAR ---------------------------------
 if(FORALDRAR){
+  system.time({
   par_foralder <- readRDS("Output/3_par_foralder.rds")
-  RDS(par_foralder,"Output/7_par_foralder.rds")
+  
+  setDT(par_foralder)
+  par_foralder[,(paste0(metadata_foralder$variable, "_parbarn")):=lapply(metadata_foralder$search, applySearch, variable = par_foralder$DIAGNOS),]
+  # derive new diagnoses
+  
+  par_foralder <- par_foralder[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "lopnr", .SDcols = paste0(metadata_foralder$variable, "_parbarn")]
+  
+  par_foralder <- data.frame(par_foralder)
+  saveRDS(par_foralder,"Output/7_par_foralder.rds")
+  rm(par_foralder)
+  })
 }
 
 #------------------------------------ MFR --------------------------------------
 if(MFR){
-  mfr <- readRDS("Output/1_mfr.rds")
+  if(BARN){
+    mfr <- readRDS("Output/1_mfr.rds")
+    
+    setDT(mfr)
+    
+    system.time({
+    mfr[,(paste0(metadata_barn$variable, "_mfr")):=lapply(metadata_barn$search, applySearch, variable = mfr$BDIAG),]
+    # derive new diagnoses
+    
+    #mfr <- mfr[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "BLOPNR", .SDcols = paste0(metadata_barn$variable, "_mfr")]
+    
+    mfr <- data.frame(mfr)
+    saveRDS(mfr, "Output/7_mfr_barn.rds")
+    rm(mfr)
+    gc()
+    })
+  }
   
-  
-  setDT(mfr)
-  mfr[,(paste0(metadata$variable, "_mfr")):=lapply(metadata$search, applySearch, variable = mfr$BDIAG),]
-  # derive new diagnoses
-  
-  mfr <- mfr[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "BLOPNR", .SDcols = paste0(metadata$variable, "_mfr")]
-  
-  mfr <- data.frame(mfr)
-  saveRDS(mfr, "Output/7_mfr.rds")
-  rm(mfr)
-  gc()
+  if(FORALDRAR){
+    mfr <- readRDS("Output/1_mfr.rds")
+    
+    setDT(mfr)
+    
+    system.time({
+    mfr[,(paste0(metadata_foralder$variable, "_mfr")):=lapply(metadata_foralder$search, applySearch, variable = mfr$MDIAG),]
+    # derive new diagnoses
+    
+    #mfr <- mfr[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "BLOPNR", .SDcols = paste0(metadata_foralder$variable, "_mfr")]
+    
+    mfr <- data.frame(mfr)
+    saveRDS(mfr, "Output/7_mfr_foraldrar.rds")
+    rm(mfr)
+    gc()
+    })
+  }
+    
 }
 #------------------ Merge (maybe move this to another script) ------------------
 
