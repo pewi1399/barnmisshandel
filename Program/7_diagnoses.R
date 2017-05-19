@@ -2,20 +2,22 @@ rm(list = ls())
 
 library(dplyr)
 library(data.table)
+library(testthat)
+library(tidyr)
 
 source("Program/functions.R", encoding = "utf-8")
 BARN = TRUE
 FORALDRAR = TRUE
 MFR = TRUE
-MERGE = FALSE
+MERGE = TRUE
 
 # filter and split data dictionary
 metadata_barn <- metadata %>% 
-  filter(grepl("^barn$|^barn_", Group) & Barnmissh == 1)
+  filter(grepl("^barn$|^barn_", Group) & Barnmissh == 1 & derived == "nej")
 
 # foraldrar
 metadata_foralder <- metadata %>% 
-  filter(grepl("^mor_|^mor$|^far_|^far$", Group) & Barnmissh == 1)
+  filter(grepl("^mor_|^mor$|^far_|^far$", Group) & Barnmissh == 1 & derived == "nej")
 
 # derive diagnoses in steps. Apply search per source 
 #--------------------------------- PAR BARN ------------------------------------
@@ -33,7 +35,7 @@ if(BARN){
   saveRDS(par_barn, "Output/7_par_barn.rds")
   rm(par_barn)
   gc()
-  })
+  }) #1520.83
 }
 
 #------------------------------- PAR FORALDRAR ---------------------------------
@@ -50,7 +52,7 @@ if(FORALDRAR){
   par_foralder <- data.frame(par_foralder)
   saveRDS(par_foralder,"Output/7_par_foralder.rds")
   rm(par_foralder)
-  })
+  }) # 1165.78
 }
 
 #------------------------------------ MFR --------------------------------------
@@ -70,7 +72,7 @@ if(MFR){
     saveRDS(mfr, "Output/7_mfr_barn.rds")
     rm(mfr)
     gc()
-    })
+    }) # 
   }
   
   if(FORALDRAR){
@@ -85,7 +87,7 @@ if(MFR){
     #mfr <- mfr[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "BLOPNR", .SDcols = paste0(metadata_foralder$variable, "_mfr")]
     
     mfr <- data.frame(mfr)
-    saveRDS(mfr, "Output/7_mfr_foraldrar.rds")
+    saveRDS(mfr, "Output/7_mfr_foralder.rds")
     rm(mfr)
     gc()
     })
@@ -95,17 +97,35 @@ if(MFR){
 #------------------ Merge (maybe move this to another script) ------------------
 
 if(MERGE){
-  mfr <- readRDS("Output/7_mfr.rds")
+  mfr <- readRDS("Output/7_mfr_barn.rds")
+  mfr <- mfr[!duplicated(mfr$BLOPNR),]
+  
+  
   par_barn <- readRDS("Output/7_par_barn.rds")
   
   par_barn <- dplyr::rename(par_barn, BLOPNR = lopnr)
   
+  
+  mfr_foralder <- readRDS("Output/7_mfr_foralder.rds")
+  mfr_foralder <- mfr_foralder[!duplicated(mfr$BLOPNR), grep("^n_|BLOPNR", names(mfr_foralder))]
+  
+  
+  par_foralder <- readRDS("Output/7_par_foralder.rds")
+  
+  par_foralder <- dplyr::rename(par_foralder, BLOPNR = lopnr)
+  
   setDT(mfr, key = "BLOPNR")
   setDT(par_barn, key = "BLOPNR")
-  
+  setDT(mfr_foralder, key = "BLOPNR")
+  setDT(par_foralder, key = "BLOPNR")
+ 
+  mfr_cases <- nrow(mfr) 
     
   analysdata <- merge(mfr, par_barn, by = "BLOPNR", all.x = TRUE)
-  
+  analysdata <- merge(analysdata, mfr_foralder, by = "BLOPNR", all.x = TRUE)
+  analysdata <- merge(analysdata, par_foralder, by = "BLOPNR", all.x = TRUE)
+ 
+  # add classification 
   fall_kontroll <- read.table("Indata/Sos_20170407/SoS/Data/META_28574_2015.tab",
              sep = "\t",
              header = TRUE,
@@ -117,16 +137,24 @@ if(MERGE){
     rename(BLOPNR = LopNr) %>% 
     setDT(key = "BLOPNR") %>% 
     distinct()
-  
-  
-  
-  
+
   analysdata <- merge(analysdata, fall_kontroll, by = "BLOPNR", all.x = TRUE)
   
-  analysdata[,(metadata$variable):=lapply(metadata$variable, 
+   test_that({"expect same number of rows in mfr as before merge"},
+             expect_equal(mfr_cases, nrow(analysdata))
+             )
+  
+  # get rid of variables that are not derived from 
+  metadataSingle <- metadata %>% 
+    filter(Barnmissh == 1 & derived == "nej")
+   
+   
+  analysdata[,(metadataSingle$variable):=lapply(metadataSingle$variable, 
                                           function(x){
                                             
-                                            sumvars <- grep(paste0("^", x ,"_"), names(analysdata), value = TRUE)
+                                            sumvars <- grep(paste0("^", x ,"_[a-z]*$"), names(analysdata), value = TRUE)
+                                            print(x)
+                                            print(sumvars)
                                             
                                             if(length(sumvars) != 2){
                                               stop("Incorrect number of variables to sum")
@@ -149,7 +177,16 @@ if(MERGE){
   
   out <- 
   analysdata %>% 
-    select(-BLOPNR) %>% 
+    select(-BLOPNR, 
+           -BDIAG, 
+           -MDIAG, 
+           -Mlopnr, 
+           -SJUKHUS_S, 
+           -MFLOP, 
+           -BFLOP, 
+           -CMFODLAND,
+           -Cfnat,
+           -Cmnat) %>% 
     group_by(TYPE, FODAR) %>%
     summarise_each(funs(sum)) %>% 
     data.frame %>% 
@@ -162,6 +199,7 @@ if(MERGE){
   
   out <- merge(out, n_table, by = c("TYPE", "FODAR"))
   
+  sheet1 <-
   out %>% 
     gather(variabel, antal, -TYPE, -FODAR, -n) %>% 
     mutate(per_100000 = round(100000 * antal/n, 2)) %>%
@@ -169,8 +207,39 @@ if(MERGE){
     mutate(variabel = paste0(variabel, "_", key)) %>% 
     select(-key) %>% 
     spread(variabel, value) %>% 
-    arrange(FODAR, TYPE) %>% 
-    openxlsx::write.xlsx("Output/7_barndiagnoser.xlsx")
+    arrange(FODAR, TYPE) #%>% 
+    #openxlsx::write.xlsx("Output/7_diagnoser.xlsx")
+  
+  lowerYear = 1997
+  upperYear = 2013
+  breakYear = 2007
+  
+  sheet2 <-
+    out %>%
+      filter(!is.na(FODAR) & FODAR >= lowerYear) %>% 
+      mutate(period = ifelse(FODAR > breakYear, paste0(breakYear+1,"_",upperYear), paste0(lowerYear,"_",breakYear))) %>% 
+      select(-FODAR, -LAN) %>% 
+      group_by(period, TYPE) %>% 
+      summarise_each(funs(sum(., na.rm = TRUE))) %>% 
+      gather(variabel, antal, -TYPE, -period, -n) %>% 
+      mutate(per_100000 = round(100000 * antal/n, 2)) %>%
+      gather(key, value, -TYPE, -period, -n, -variabel) %>% 
+      mutate(variabel = paste0(variabel, "_", key)) %>% 
+      select(-key) %>% 
+      spread(variabel, value) %>% 
+      arrange(period, TYPE)
+  
+  
+  
+  wb <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(wb, "Year")
+  openxlsx::addWorksheet(wb, "Period")
+  
+  openxlsx::writeData(wb, "Year", sheet1)
+  openxlsx::writeData(wb, "Period", sheet2)
+  
+  
+  openxlsx::saveWorkbook(wb, file = "Output/7_diagnoser.xlsx", overwrite = TRUE)
 
 }
 #-------------------------------------------------------------------------------
