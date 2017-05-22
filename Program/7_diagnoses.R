@@ -29,7 +29,7 @@ if(BARN){
   par_barn[,(paste0(metadata_barn$variable, "_parbarn")):=lapply(metadata_barn$search, applySearch, variable = par_barn$DIAGNOS),]
   # derive new diagnoses
  
-  par_barn <- par_barn[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "lopnr", .SDcols = paste0(metadata_barn$variable, "_parbarn")]
+  par_barn <- par_barn[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_barn$variable, "_parbarn")]
   
   par_barn <- data.frame(par_barn)
   saveRDS(par_barn, "Output/7_par_barn.rds")
@@ -47,7 +47,7 @@ if(FORALDRAR){
   par_foralder[,(paste0(metadata_foralder$variable, "_parbarn")):=lapply(metadata_foralder$search, applySearch, variable = par_foralder$DIAGNOS),]
   # derive new diagnoses
   
-  par_foralder <- par_foralder[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "lopnr", .SDcols = paste0(metadata_foralder$variable, "_parbarn")]
+  par_foralder <- par_foralder[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_foralder$variable, "_parbarn")]
   
   par_foralder <- data.frame(par_foralder)
   saveRDS(par_foralder,"Output/7_par_foralder.rds")
