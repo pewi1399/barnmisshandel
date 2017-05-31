@@ -28,7 +28,7 @@ parallelDiagnoses <- function(metadata_tmp){
   #par_barn <- par_barn[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_tmp$variable, "_parbarn")]
   par_barn <- data.frame(par_barn)
   
-  out <- par_barn[,c("lopnr", "INDATUM", paste0(metadata_tmp$variable, "_parbarn"))]
+  out <- par_barn[,c("lopnr", "INDATUM","DIAGNOS", paste0(metadata_tmp$variable, "_parbarn"))]
   return(out)
 }
 
@@ -59,6 +59,36 @@ out <-
     Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="lopnr"), .)
 
 saveRDS(out, "Output/7_par_barn_test.rds")
+tmp <- readRDS("Output/7_par_barn_test.rds")
+
+names(tmp)
+tmp <- rename(tmp, BLOPNR = lopnr)
+
+# add classification 
+fall_kontroll <- read.table("Indata/Sos_20170407/SoS/Data/META_28574_2015.tab",
+                            sep = "\t",
+                            header = TRUE,
+                            stringsAsFactors = FALSE
+)
+
+fall_kontroll <- fall_kontroll %>% 
+  select(LopNr, TYPE, FODAR) %>% 
+  rename(BLOPNR = LopNr)
+
+out <- merge(tmp, fall_kontroll, by = "BLOPNR")
+
+cases <- 
+out %>%
+  filter(TYPE == "CONTROL" & n_maltreatmentSyndrome_parbarn == 1) %>% 
+  select(BLOPNR) %>% 
+  distinct
+
+par_barn <- readRDS("Output/2_par_barn.rds")
+
+
+final <- 
+par_barn %>% 
+  filter(lopnr %in% cases$BLOPNR)
 
 
 

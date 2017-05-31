@@ -26,3 +26,25 @@ if(TRUE){ # metadata and diagnosis functions
      return(out)
    }
 }
+
+#------------------------------- parallelisation -------------------------------
+
+parallelDiagnoses <- function(metadata_tmp, dataset= NULL, suffix , type = NULL){
+  library(data.table)
+  setDT(dataset)
+  
+  dataset[,(paste0(metadata_tmp$variable, suffix)):=lapply(metadata_tmp$search, applySearch, variable = dataset$DIAGNOS),]
+  
+  if(type == "par"){
+    dataset <- dataset[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_tmp$variable, suffix)]
+    dataset <- data.frame(dataset)
+    
+    out <- dataset[,c("lopnr", paste0(metadata_tmp$variable, suffix))]
+  }else if (type == "mfr"){
+    dataset <- data.frame(dataset)
+    
+    out <- dataset[,c("BLOPNR","Mlopnr", paste0(metadata_tmp$variable, suffix))] 
+  }
+  
+  return(out)
+}
