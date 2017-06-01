@@ -29,11 +29,11 @@ if(TRUE){ # metadata and diagnosis functions
 
 #------------------------------- parallelisation -------------------------------
 
-parallelDiagnoses <- function(metadata_tmp, dataset= NULL, suffix , type = NULL){
+parallelDiagnoses <- function(metadata_tmp, dataset= NULL, suffix , type = NULL, diagvar){
   library(data.table)
   setDT(dataset)
   
-  dataset[,(paste0(metadata_tmp$variable, suffix)):=lapply(metadata_tmp$search, applySearch, variable = dataset$DIAGNOS),]
+  dataset[,(paste0(metadata_tmp$variable, suffix)):=lapply(metadata_tmp$search, applySearch, variable = dataset[,diagvar, with = FALSE][[1]]),]
   
   if(type == "par"){
     dataset <- dataset[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_tmp$variable, suffix)]

@@ -8,11 +8,12 @@ library(parallel)
 
 source("Program/functions.R", encoding = "utf-8")
 BARN = TRUE
-FORALDRAR = TRUE
+FORALDRAR = FALSE
 MFR = TRUE
 PAR = TRUE
-MERGE = TRUE
-ncores <- detectCores() - 3
+MALTREATMENT = TRUE
+MERGE = FALSE
+ncores <- detectCores() - 1
   
 
 # filter and split data dictionary
@@ -38,14 +39,18 @@ if(BARN){
   #----------------------------------------------------------------------------- 
   if(PAR){
     par_barn <- readRDS("Output/2_par_barn.rds")
+   #par_barn <- par_barn[1:20000,]
     
     cl <- makeCluster(ncores)
     
     clusterExport(cl, c("parallelDiagnoses", "par_barn", "applySearch"))
     
+   # Rprof("Output/hjsdfhjdsf")
     system.time({
-    outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_parbarn", type = "par", dataset = par_barn)
+    outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_parbarn", type = "par", dataset = par_barn, diagvar = "DIAGNOS")
     })
+    #Rprof()
+    #summaryRprof("Output/hjsdfhjdsf")
     
     parallel::stopCluster(cl)
     
@@ -54,6 +59,8 @@ if(BARN){
         Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="lopnr"), .)
     
     saveRDS(out, "Output/6_par_barn.rds")
+    rm(par_barn)
+    rm(outlist)
   }
   
   if(MFR){
@@ -64,7 +71,7 @@ if(BARN){
     clusterExport(cl, c("parallelDiagnoses", "mfr_barn", "applySearch"))
     
     system.time({
-      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_mfrbarn", type = "mfr", dataset = mfr_barn)
+      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_mfrbarn", type = "mfr", dataset = mfr_barn, "BDIAG")
     })
     
     parallel::stopCluster(cl)
@@ -73,8 +80,25 @@ if(BARN){
       outlist %>% 
       Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="BLOPNR"), .)
     
-    saveRDS(out, "Output/6_mfr_barn.rds")
+    out <- out[,-grep("Mlopnr.", names(out))]
     
+    mfr_grundvariabler <- mfr_barn %>% 
+      select(BLOPNR, 
+           BDIAG, 
+           MDIAG, 
+           SJUKHUS_S, 
+           MFLOP, 
+           BFLOP, 
+           CMFODLAND,
+           Cfnat,
+           Cmnat)
+    
+    out <- merge(out, mfr_grundvariabler, by = "BLOPNR")
+    
+    
+    saveRDS(out, "Output/6_mfr_barn.rds")
+    rm(mfr_barn)
+    rm(outlist)
     
   }
 }
@@ -98,7 +122,7 @@ if(FORALDRAR){
     clusterExport(cl, c("parallelDiagnoses", "par_foralder", "applySearch"))
     
     system.time({
-      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_parforalder", type = "par", dataset = par_foralder)
+      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_parforalder", type = "par", dataset = par_foralder, diagvar = "DIAGNOS")
     })
     
     parallel::stopCluster(cl)
@@ -108,6 +132,7 @@ if(FORALDRAR){
       Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="lopnr"), .)
     
     saveRDS(out, "Output/6_par_foralder.rds")
+    rm(par_foralder)
   }
   
   if(MFR){
@@ -118,7 +143,7 @@ if(FORALDRAR){
     clusterExport(cl, c("parallelDiagnoses", "mfr_foralder", "applySearch"))
     
     system.time({
-      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_mfrforalder", type = "mfr", dataset = mfr_foralder)
+      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_mfrforalder", type = "mfr", dataset = mfr_foralder, diagvar = "MDIAG")
     })
     
     parallel::stopCluster(cl)
@@ -128,10 +153,38 @@ if(FORALDRAR){
       Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by=c("BLOPNR", "Mlopnr")), .)
     
     saveRDS(out, "Output/6_mfr_foralder.rds")
-    
-    
+    rm(mfr_foralder)
   }
 }
+
+#----------------------- calculate times for misshandel ------------------------
+#mfr_barn <- readRDS("Output/1_mfr.rds")
+if(MALTREATMENT){
+  par_barn <- readRDS("Output/2_par_barn.rds")
+  
+  metadata_maltreatment <- 
+    metadata_barn %>% 
+      filter(variable == "n_maltreatmentSyndrome") 
+    
+  setDT(par_barn)
+  
+  par_barn[,(paste0("n_maltreatmentSyndrome")):=lapply(metadata_maltreatment$search, applySearch, variable = par_barn$DIAGNOS),]
+  
+  out <- 
+    par_barn %>%
+    filter(n_maltreatmentSyndrome == 1) %>% 
+    select(lopnr, INDATUM) %>%
+    group_by(lopnr) %>% 
+    mutate(firstMaltreatment = min(INDATUM)) %>%
+    ungroup() %>% 
+    filter(firstMaltreatment == INDATUM) %>% 
+    select(lopnr, firstMaltreatment) %>% 
+    distinct(lopnr, firstMaltreatment)
+  
+  
+  saveRDS(out, "Output/6_maltreatmenttime.rds")
+}
+#-------------------------------------------------------------------------------
 
 #------------------ Merge (maybe move this to another script) ------------------
 
@@ -146,7 +199,7 @@ if(MERGE){
   
   
   mfr_foralder <- readRDS("Output/6_mfr_foralder.rds")
-  mfr_foralder <- mfr_foralder[!duplicated(mfr$BLOPNR), grep("^n_|BLOPNR", names(mfr_foralder))]
+  mfr_foralder <- mfr_foralder[!duplicated(mfr_foralder$BLOPNR), grep("^n_|BLOPNR", names(mfr_foralder))]
   
   
   par_foralder <- readRDS("Output/6_par_foralder.rds")
@@ -217,15 +270,16 @@ if(MERGE){
   out <- 
   analysdata %>% 
     select(-BLOPNR, 
-           -BDIAG, 
-           -MDIAG, 
-           -Mlopnr, 
-           -SJUKHUS_S, 
-           -MFLOP, 
-           -BFLOP, 
-           -CMFODLAND,
-           -Cfnat,
-           -Cmnat) %>% 
+           #-BDIAG, 
+           #-MDIAG, 
+           -Mlopnr 
+           #-SJUKHUS_S, 
+           #-MFLOP, 
+           #-BFLOP, 
+           #-CMFODLAND,
+           #-Cfnat,
+           #-Cmnat)
+           )%>% 
     group_by(TYPE, FODAR) %>%
     summarise_each(funs(sum)) %>% 
     data.frame %>% 
