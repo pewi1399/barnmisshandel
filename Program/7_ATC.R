@@ -33,4 +33,7 @@ lmed_foralder$SSRI <- ifelse(lmed_foralder$N06AB == 1, 1, 0)
 lmed_foralder$ADHD <- ifelse(lmed_foralder$N06B == 1, 1, 0)
 
 
-rowSums(lmed_foralder[,c("LM", "SSRI", "ADHD")])
+# ADHD is invariant of maltreatment diagnosis
+lmed_adhd <- lmed_foralder[,list(ADHD = ifelse(sum(ADHD)>0,1,0)),by = "lopnr"]
+
+# read in diagnosis to determine when medication occurs relative to maltreatment

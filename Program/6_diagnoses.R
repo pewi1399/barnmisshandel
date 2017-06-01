@@ -11,8 +11,8 @@ BARN = TRUE
 FORALDRAR = TRUE
 MFR = TRUE
 PAR = TRUE
-MERGE = FALSE
-ncores <- detectCores() - 4
+MERGE = TRUE
+ncores <- detectCores() - 3
   
 
 # filter and split data dictionary
@@ -26,20 +26,6 @@ metadata_foralder <- metadata %>%
 # derive diagnoses in steps. Apply search per source 
 #--------------------------------- PAR BARN ------------------------------------
 if(BARN){
-#  system.time({
-#  par_barn <- readRDS("Output/2_par_barn.rds")
-# 
-#  setDT(par_barn)
-#  par_barn[,(paste0(metadata_barn$variable, "_parbarn")):=lapply(metadata_barn$search, applySearch, variable = par_barn$DIAGNOS),]
-#  # derive new diagnoses
-# 
-#  par_barn <- par_barn[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_barn$variable, "_parbarn")]
-#  
-#  par_barn <- data.frame(par_barn)
-#  saveRDS(par_barn, "Output/7_par_barn.rds")
-#  rm(par_barn)
-#  gc()
-#  }) #1520.83
   #-------------------------------- derive diagnoses ---------------------------
   var_list <- metadata_barn$variable
   
@@ -67,7 +53,7 @@ if(BARN){
       outlist %>% 
         Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="lopnr"), .)
     
-    saveRDS(out, "Output/7_par_barn_test.rds")
+    saveRDS(out, "Output/6_par_barn.rds")
   }
   
   if(MFR){
@@ -87,7 +73,7 @@ if(BARN){
       outlist %>% 
       Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="BLOPNR"), .)
     
-    saveRDS(out, "Output/7_mfr_barn_test.rds")
+    saveRDS(out, "Output/6_mfr_barn.rds")
     
     
   }
@@ -95,20 +81,6 @@ if(BARN){
 
 #------------------------------- PAR FORALDRAR ---------------------------------
 if(FORALDRAR){
-#  system.time({
-#  par_foralder <- readRDS("Output/3_par_foralder.rds")
-#  
-#  setDT(par_foralder)
-#  par_foralder[,(paste0(metadata_foralder$variable, "_parbarn")):=lapply(metadata_foralder$search, applySearch, variable = par_foralder$DIAGNOS),]
-#  # derive new diagnoses
-#  
-#  par_foralder <- par_foralder[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_foralder$variable, "_parbarn")]
-#  
-#  par_foralder <- data.frame(par_foralder)
-#  saveRDS(par_foralder,"Output/7_par_foralder.rds")
-#  rm(par_foralder)
-#  }) # 1165.78
-  
   
   var_list <- metadata_foralder$variable
   splitvector <- rep(1:ncores, length(var_list)/ncores)
@@ -135,7 +107,7 @@ if(FORALDRAR){
       outlist %>% 
       Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="lopnr"), .)
     
-    saveRDS(out, "Output/7_par_foralder_test.rds")
+    saveRDS(out, "Output/6_par_foralder.rds")
   }
   
   if(MFR){
@@ -155,68 +127,29 @@ if(FORALDRAR){
       outlist %>% 
       Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by=c("BLOPNR", "Mlopnr")), .)
     
-    saveRDS(out, "Output/7_mfr_foralder_test.rds")
+    saveRDS(out, "Output/6_mfr_foralder.rds")
     
     
   }
 }
 
-#------------------------------------ MFR --------------------------------------
-if(MFR){
-  #if(BARN){
-  #  mfr <- readRDS("Output/1_mfr.rds")
-  #  
-  #  setDT(mfr)
-  #  
-  #  system.time({
-  #  mfr[,(paste0(metadata_barn$variable, "_mfr")):=lapply(metadata_barn$search, applySearch, variable = mfr$BDIAG),]
-  #  # derive new diagnoses
-  #  
-  #  #mfr <- mfr[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "BLOPNR", .SDcols = paste0(metadata_barn$variable, "_mfr")]
-  #  
-  #  mfr <- data.frame(mfr)
-  #  saveRDS(mfr, "Output/7_mfr_barn.rds")
-  #  rm(mfr)
-  #  gc()
-  #  }) # 
-  #}
-  
-#  if(FORALDRAR){
-#    mfr <- readRDS("Output/1_mfr.rds")
-#    
-#    setDT(mfr)
-#    
-#    system.time({
-#    mfr[,(paste0(metadata_foralder$variable, "_mfr")):=lapply(metadata_foralder$search, applySearch, variable = mfr$MDIAG),]
-#    # derive new diagnoses
-#    
-#    #mfr <- mfr[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>1,1,0)}), by = "BLOPNR", .SDcols = paste0(metadata_foralder$variable, "_mfr")]
-#    
-#    mfr <- data.frame(mfr)
-#    saveRDS(mfr, "Output/7_mfr_foralder.rds")
-#    rm(mfr)
-#    gc()
-#    })
-#  }
-    
-}
 #------------------ Merge (maybe move this to another script) ------------------
 
 if(MERGE){
-  mfr <- readRDS("Output/7_mfr_barn.rds")
+  mfr <- readRDS("Output/6_mfr_barn.rds")
   mfr <- mfr[!duplicated(mfr$BLOPNR),]
   
   
-  par_barn <- readRDS("Output/7_par_barn.rds")
+  par_barn <- readRDS("Output/6_par_barn.rds")
   
   par_barn <- dplyr::rename(par_barn, BLOPNR = lopnr)
   
   
-  mfr_foralder <- readRDS("Output/7_mfr_foralder.rds")
+  mfr_foralder <- readRDS("Output/6_mfr_foralder.rds")
   mfr_foralder <- mfr_foralder[!duplicated(mfr$BLOPNR), grep("^n_|BLOPNR", names(mfr_foralder))]
   
   
-  par_foralder <- readRDS("Output/7_par_foralder.rds")
+  par_foralder <- readRDS("Output/6_par_foralder.rds")
   
   par_foralder <- dplyr::rename(par_foralder, BLOPNR = lopnr)
   
@@ -345,20 +278,8 @@ if(MERGE){
   openxlsx::writeData(wb, "Period", sheet2)
   
   
-  openxlsx::saveWorkbook(wb, file = "Output/7_diagnoser.xlsx", overwrite = TRUE)
+  openxlsx::saveWorkbook(wb, file = "Output/6_diagnoser.xlsx", overwrite = TRUE)
+  saveRDS(analysdata, "Output/6_analysdata.rds")
 
 }
 #-------------------------------------------------------------------------------
-
-#-------------------------------------------------------------------------------
- # calculate derived vars
-# for( i in 1:nrow(derivVars)){
-#   # row: dataframe with code definitions
-#   row <- derivVars[i,]
-#   variable <- as.character(row$variable)
-#   
-#   vars <- gsub(" ", "", unlist(strsplit(gsub("\\|","",as.character(row$search)), " ")))
-#   vars <- subset(vars, vars!="" & vars != "NA")
-#   
-#   par_barn[, variable] <- ifelse(rowSums(par_barn[,paste0("n_",vars)])>0,1,0)
-# }
