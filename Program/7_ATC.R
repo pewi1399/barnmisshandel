@@ -1,6 +1,7 @@
 rm(list=ls())
 library(data.table)
 library(dplyr)
+library(tidyr)
 
 source("Program/functions.R", encoding = "utf-8")
 
@@ -38,6 +39,10 @@ lmed_adhd <- lmed_foralder[,list(ADHD = ifelse(sum(ADHD)>0,1,0)),by = "lopnr"]
 # read in diagnosis to determine when medication occurs relative to maltreatment
 maltreatment_time <- readRDS("Output/6_maltreatmenttime.rds")
 
+maltreatment_time<-
+  maltreatment_time %>% 
+  rename("LopNrBarn" = lopnr)
+
 #tmp <- merge(lmed_adhd, maltreatment_time, by = "BLOPNR")
 
 
@@ -59,47 +64,82 @@ names(kopplingAdoptiv) <- names(kopplingBio)
 koppling <- rbind(kopplingBio, kopplingAdoptiv)
 
 # join in parent ids
-maltreatment_time <- merge(maltreatment_time, koppling, by.x = "lopnr", by.y = "LopNr")
+#maltreatment_time <- merge(maltreatment_time, koppling, by.x = "lopnr", by.y = "LopNr")
 
 koppling_mor <- koppling %>% select(LopNr, LopNrMor) %>% 
-  rename(LopNrDotter = "LopNr")
+  rename("LopNrMorBarn" = LopNr) %>% 
+  filter(!is.na(LopNrMor)) %>% 
+  distinct()
 
 koppling_far <- koppling %>% select(LopNr, LopNrFar) %>% 
-  rename(LopNrSon = "LopNr")
-
-tmp <- merge(lmed_foralder, koppling_far, by.x = "lopnr", by.y = "LopNrFar", all.x = TRUE) 
-tmp <- merge(tmp, koppling_mor, by.x = "lopnr", by.y = "LopNrMor", all.x = TRUE)
-
+  rename("LopNrFarBarn" = LopNr) %>% 
+  filter(!is.na(LopNrFar)) %>% 
+  distinct()
 
 
-#maltreatment_time %>% 
-#  filter(lopnr %in% c(2325417, 2464590, 2653999))
-
-# get rid of medicated without maltreatment
-lmed_foralder <-
-  lmed_foralder %>% 
-  filter()
-  
+tmp <- merge(lmed_foralder, koppling_far, by.x = "lopnr", by.y = "LopNrFar", all.x = TRUE, allow.cartesian = TRUE) 
+tmp <- merge(tmp, koppling_mor, by.x = "lopnr", by.y = "LopNrMor", all.x = TRUE, allow.cartesian = TRUE)
 
 
-lmed_foralder$mother <- ifelse(lmed_foralder$lopnr %in% koppling$LopNrMor, 1, 0)
-lmed_foralder$father <- ifelse(lmed_foralder$lopnr %in% koppling$LopNrFar, 1, 0)
+#table(is.na(tmp$LopNrMorBarn), is.na(tmp$LopNrFarBarn))
+
+# combine children lopnr into one variable
+tmp <- 
+tmp %>% 
+  mutate(
+    LopNrBarn = ifelse(is.na(LopNrFarBarn), LopNrMorBarn, LopNrFarBarn),
+    foralder = ifelse(is.na(LopNrFarBarn), "MOR", "FAR")
+         ) %>% 
+  filter(LopNrBarn %in% maltreatment_time$LopNrBarn) %>% 
+  rename("LopNrForalder" = lopnr) %>% 
+  select(LopNrForalder, LopNrBarn, foralder, FDATUM, LM, SSRI)
 
 
+tmp <- merge(tmp, maltreatment_time, by= "LopNrBarn", all.x = TRUE)
 
-lmed_mor <-
-  lmed_foralder %>% 
-  filter(mother == 1) %>% 
-  select(lopnr,EDATUM, LM, SSRI)
+tmp <-
+  tmp %>% 
+  mutate(time_from_maltreatment = as.numeric(difftime(FDATUM, firstMaltreatment,  units = "days"))) %>% 
+  mutate(
+    after_maltreatment = ifelse(time_from_maltreatment>=0, 1,0)
+    ) %>% 
+  select(LopNrForalder, LopNrBarn, foralder, after_maltreatment, LM, SSRI) %>% 
+  group_by(LopNrBarn, foralder, after_maltreatment) %>% 
+  mutate(
+    LM = ifelse(min(LM)>0, min(LM), 0),
+    SSRI = ifelse(min(SSRI)>0, min(SSRI), 0)
+  ) %>% 
+  ungroup %>% 
+  distinct() %>% 
+  mutate(after_maltreatment = ifelse(after_maltreatment == 1, "efter", "innan"))
 
-lmed_far <-
-  lmed_foralder %>% 
-  filter(father ==1) %>% 
-  select(lopnr,EDATUM, LM, SSRI)
-
-rm(lmed_foralder)
-
-
-
+lmed_LM_SSRI <-
+tmp %>%
+  select(-LopNrForalder) %>% 
+  gather(key, value, -LopNrBarn, -foralder, -after_maltreatment) %>% 
+  mutate(variable = paste0(foralder, key, after_maltreatment)) %>% 
+  select(LopNrBarn, variable, value) %>% 
+  spread(key = variable, value = value, fill= 0)
 
 
+tmp <- merge(lmed_adhd, koppling_far, by.x = "lopnr", by.y = "LopNrFar", all.x = TRUE, allow.cartesian = TRUE) 
+tmp <- merge(tmp, koppling_mor, by.x = "lopnr", by.y = "LopNrMor", all.x = TRUE, allow.cartesian = TRUE)
+
+lmed_adhd <-
+tmp %>% 
+  mutate(
+    LopNrBarn = ifelse(is.na(LopNrFarBarn), LopNrMorBarn, LopNrFarBarn),
+    foralder = ifelse(is.na(LopNrFarBarn), "MOR", "FAR")
+  ) %>% 
+  select(LopNrBarn, ADHD, foralder) %>% 
+  gather(key, value, -LopNrBarn, -foralder) %>% 
+  mutate(variable = paste0(foralder,key)) %>% 
+  select(LopNrBarn, variable, value) %>% 
+  filter(value == 1) %>% 
+  distinct() %>% 
+  spread(key = variable, value = value, fill = 0)
+
+
+out <- merge(lmed_LM_SSRI, lmed_adhd, by = "LopNrBarn", all = TRUE)
+
+saveRDS(out,"Output/7_ATC.rds")

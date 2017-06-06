@@ -8,7 +8,7 @@ library(parallel)
 
 source("Program/functions.R", encoding = "utf-8")
 BARN = TRUE
-FORALDRAR = FALSE
+FORALDRAR = TRUE
 MFR = TRUE
 PAR = TRUE
 MALTREATMENT = TRUE
@@ -179,8 +179,20 @@ if(MALTREATMENT){
     ungroup() %>% 
     filter(firstMaltreatment == INDATUM) %>% 
     select(lopnr, firstMaltreatment) %>% 
-    distinct(lopnr, firstMaltreatment)
+    distinct(lopnr, firstMaltreatment) %>% 
+    mutate(maltreatmentYear = substr(firstMaltreatment,1,4))
   
+  
+  firstdate <- out %>%
+    select(lopnr , maltreatmentYear) %>% 
+    mutate(maltrementYear = as.numeric(maltreatmentYear))
+  
+  system.time({
+    write.table(firstdate, "Output/6_firstMaltreatment.txt",
+                sep = "\t",
+                row.names = FALSE,
+                na = "") 
+  })
   
   saveRDS(out, "Output/6_maltreatmenttime.rds")
 }
@@ -203,8 +215,7 @@ if(MERGE){
   
   
   par_foralder <- readRDS("Output/6_par_foralder.rds")
-  
-  par_foralder <- dplyr::rename(par_foralder, BLOPNR = lopnr)
+  par_foralder <- dplyr::rename(par_foralder, LopNrForalder = lopnr)
   
   setDT(mfr, key = "BLOPNR")
   setDT(par_barn, key = "BLOPNR")
@@ -259,7 +270,7 @@ if(MERGE){
   # these should all be the same
   #table(analysdata$n_maltreatmentSyndrome == analysdata$n_maltreatmentSyndrome_mfr + analysdata$n_maltreatmentSyndrome_parbarn) 
 
-  tmp <- grep("_mfr$|_parbarn$", names(analysdata), value = TRUE, invert = TRUE)
+  tmp <- grep("_mfrbarn$|_parbarn$|_mfrforalder$|_parforalder$", names(analysdata), value = TRUE, invert = TRUE)
   analysdata <- analysdata[,tmp, with = FALSE]
   
   n_table <-   
@@ -270,16 +281,16 @@ if(MERGE){
   out <- 
   analysdata %>% 
     select(-BLOPNR, 
-           #-BDIAG, 
-           #-MDIAG, 
-           -Mlopnr 
-           #-SJUKHUS_S, 
-           #-MFLOP, 
-           #-BFLOP, 
-           #-CMFODLAND,
-           #-Cfnat,
-           #-Cmnat)
-           )%>% 
+           -BDIAG, 
+           -MDIAG, 
+           -Mlopnr, 
+           -SJUKHUS_S, 
+           -MFLOP, 
+           -BFLOP, 
+           -CMFODLAND,
+           -Cfnat,
+           -Cmnat
+           ) %>% 
     group_by(TYPE, FODAR) %>%
     summarise_each(funs(sum)) %>% 
     data.frame %>% 
@@ -311,7 +322,7 @@ if(MERGE){
     out %>%
       filter(!is.na(FODAR) & FODAR >= lowerYear) %>% 
       mutate(period = ifelse(FODAR > breakYear, paste0(breakYear+1,"_",upperYear), paste0(lowerYear,"_",breakYear))) %>% 
-      select(-FODAR, -LAN) %>% 
+      select(-FODAR) %>% 
       group_by(period, TYPE) %>% 
       summarise_each(funs(sum(., na.rm = TRUE))) %>% 
       gather(variabel, antal, -TYPE, -period, -n) %>% 
