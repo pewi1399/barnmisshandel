@@ -82,16 +82,16 @@ if(BARN){
     
     out <- out[,-grep("Mlopnr.", names(out))]
     
-    mfr_grundvariabler <- mfr_barn %>% 
-      select(BLOPNR, 
-           BDIAG, 
-           MDIAG, 
-           SJUKHUS_S, 
-           MFLOP, 
-           BFLOP, 
-           CMFODLAND,
-           Cfnat,
-           Cmnat)
+    mfr_grundvariabler <- mfr_barn #%>% 
+      #select(BLOPNR, 
+       #    BDIAG, 
+        #   MDIAG, 
+        #   SJUKHUS_S, 
+        #   MFLOP, 
+        #   BFLOP, 
+        #   CMFODLAND,
+        #   Cfnat,
+        #   Cmnat)
     
     out <- merge(out, mfr_grundvariabler, by = "BLOPNR")
     

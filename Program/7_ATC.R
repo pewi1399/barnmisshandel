@@ -13,28 +13,32 @@ lmed_foralder <- read.table("Indata/Sos_20170407/SoS/Data/UT_28574_2015/UT_LMED_
 
 lmed_foralder <- 
 lmed_foralder %>% 
-  select(lopnr, EDATUM, FDATUM, atc) %>% 
+  select(lopnr, EDATUM, FDATUM, atc) %>%
+  mutate(atc = paste0(" ",atc, " ")) %>% 
   setDT(key = "lopnr")
 
-diaglist <- c("N05A", "N05B", "N05C", "N06A", "N06B","N06AB")
+metadata_ATC <- 
+  metadata %>% 
+  filter(kalla == "atc")
 
 
-lmed_foralder[,(diaglist):=lapply(diaglist, applySearch, variable = lmed_foralder$atc) ]
+
+lmed_foralder[,(metadata_ATC$variable):=lapply(metadata_ATC$search, applySearch, variable = lmed_foralder$atc) ]
 
 
-lmed_foralder$LM <- ifelse(lmed_foralder$N05A == 1, 1, 
-                           ifelse(lmed_foralder$N05B == 1, 2, 
-                                  ifelse(lmed_foralder$N05C == 1, 3, 
-                                         ifelse(lmed_foralder$N06A == 1, 4, 0)
+lmed_foralder$LM <- ifelse(lmed_foralder$n_N05A == 1, 1, 
+                           ifelse(lmed_foralder$n_N05B == 1, 2, 
+                                  ifelse(lmed_foralder$n_N05C == 1, 3, 
+                                         ifelse(lmed_foralder$n_N06A == 1, 4, 0)
                                          )
                                   )
                            )
 
-lmed_foralder$SSRI <- ifelse(lmed_foralder$N06AB == 1, 1, 0)
-lmed_foralder$ADHD <- ifelse(lmed_foralder$N06B == 1, 1, 0)
+lmed_foralder$SSRI <- ifelse(lmed_foralder$n_N06AB == 1, 1, 0)
+lmed_foralder$ADHD <- ifelse(lmed_foralder$n_N06B == 1, 1, 0)
 
 # ADHD is invariant of maltreatment diagnosis
-lmed_adhd <- lmed_foralder[,list(ADHD = ifelse(sum(ADHD)>0,1,0)),by = "lopnr"]
+#lmed_adhd <- lmed_foralder[,list(ADHD = ifelse(sum(ADHD)>0,1,0)),by = "lopnr"]
 
 # read in diagnosis to determine when medication occurs relative to maltreatment
 maltreatment_time <- readRDS("Output/6_maltreatmenttime.rds")
@@ -91,41 +95,49 @@ tmp %>%
     foralder = ifelse(is.na(LopNrFarBarn), "MOR", "FAR")
          ) %>% 
   filter(LopNrBarn %in% maltreatment_time$LopNrBarn) %>% 
-  rename("LopNrForalder" = lopnr) %>% 
-  select(LopNrForalder, LopNrBarn, foralder, FDATUM, LM, SSRI)
+  rename("LopNrForalder" = lopnr) 
 
 
 tmp <- merge(tmp, maltreatment_time, by= "LopNrBarn", all.x = TRUE)
 
-tmp <-
-  tmp %>% 
-  mutate(time_from_maltreatment = as.numeric(difftime(FDATUM, firstMaltreatment,  units = "days"))) %>% 
-  mutate(
-    after_maltreatment = ifelse(time_from_maltreatment>=0, 1,0)
-    ) %>% 
-  select(LopNrForalder, LopNrBarn, foralder, after_maltreatment, LM, SSRI) %>% 
-  group_by(LopNrBarn, foralder, after_maltreatment) %>% 
+
+#relate diagnosis to malteratment event
+
+tmp$timediff <- difftime(tmp$FDATUM, tmp$firstMaltreatment, units = "days")
+
+tmp$event_relation <- ifelse(tmp$timediff < 0, "before_event",
+                             ifelse(tmp$timediff > 0 & tmp$timediff < 365.24*4, "diagnosis_1_4_years_after_event",
+                                    ifelse(tmp$timediff >= 365.24*4, "diagnosis_5_years_after_event", NA)))
+
+out_timeATC <-
+  tmp %>%
+  select(-LopNrForalder, 
+         -timediff, 
+         -EDATUM, 
+         -FDATUM, 
+         -atc, 
+         -LopNrFarBarn,
+         -LopNrMorBarn,
+         -firstMaltreatment,
+         -maltreatmentYear,
+         -timediff,
+         -ADHD
+         ) %>% 
   mutate(
     LM = ifelse(min(LM)>0, min(LM), 0),
     SSRI = ifelse(min(SSRI)>0, min(SSRI), 0)
   ) %>% 
-  ungroup %>% 
-  distinct() %>% 
-  mutate(after_maltreatment = ifelse(after_maltreatment == 1, "efter", "innan"))
-
-lmed_LM_SSRI <-
-tmp %>%
-  select(-LopNrForalder) %>% 
-  gather(key, value, -LopNrBarn, -foralder, -after_maltreatment) %>% 
-  mutate(variable = paste0(foralder, key, after_maltreatment)) %>% 
+  gather(key, value, -LopNrBarn, 
+         -foralder, 
+         -event_relation) %>%
+  filter(value > 0) %>% 
+  mutate(variable = paste0(key, "_", foralder,  "_", event_relation)) %>% 
   select(LopNrBarn, variable, value) %>% 
+  distinct() %>% 
   spread(key = variable, value = value, fill= 0)
 
 
-tmp <- merge(lmed_adhd, koppling_far, by.x = "lopnr", by.y = "LopNrFar", all.x = TRUE, allow.cartesian = TRUE) 
-tmp <- merge(tmp, koppling_mor, by.x = "lopnr", by.y = "LopNrMor", all.x = TRUE, allow.cartesian = TRUE)
-
-lmed_adhd <-
+out_adhd <-
 tmp %>% 
   mutate(
     LopNrBarn = ifelse(is.na(LopNrFarBarn), LopNrMorBarn, LopNrFarBarn),
@@ -140,6 +152,6 @@ tmp %>%
   spread(key = variable, value = value, fill = 0)
 
 
-out <- merge(lmed_LM_SSRI, lmed_adhd, by = "LopNrBarn", all = TRUE)
+out <- merge(out_timeATC, out_adhd, by = "LopNrBarn", all = TRUE)
 
 saveRDS(out,"Output/7_ATC.rds")

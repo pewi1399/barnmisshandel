@@ -38,12 +38,93 @@ mfr$MFLOP = paste(" ",mfr$MFLOP," ", sep="")
 mfr$BFLOP <- paste(" ",mfr$BFLOP," ", sep="") 
 
 #at this point all that is needed is MDIAG BDIAG date and lpnr
-outvars = c("BLOPNR","Mlopnr","SJUKHUS_S" ,"BDIAG","MDIAG","MFLOP", "BFLOP"
-            ,"Cfnat", "Cmnat", "CMFODLAND", "LAN")
+outvars = c("BLOPNR", 
+"Mlopnr", 
+"AR", 
+"SJUKHUS_S", 
+"INDATMHV", 
+"MVIKT", 
+"MLANGD", 
+"ROK0", 
+"SNUS0", 
+"ROK1", 
+"SNUS1", 
+"FAMSIT", 
+"OFRIBARN", 
+"OFRIIATG",
+"OFRIABEF", 
+"OFRISTIM", 
+"OFRIKIRU", 
+"OFRIICSI", 
+"OFRIANN", 
+"TIDDODF",
+"TIDLEVF",
+"TID7DOD",
+"TIDSDOD",
+"URINVINF",
+"NJURSJUK", 
+"DIABETES",
+"EPILEPSI",
+"ULCOLIT",
+"SLE",
+"HYPERTON",
+"ROK2", 
+"SNUS2",
+"BJUDNING",
+"FLSPONT",
+"FLINDUKT",
+"SECFORE",
+"ELEKAKUT", 
+"VAGINAL",
+"SUGKLOCK",
+"TANG",
+"SECAVSL",
+"TANGMARK",
+"SUGMARK", 
+"SECMARK",
+"SJUKHUS",
+"BORDF2",
+"KON",
+"GRVFV",
+"GRDFV", 
+"GRVBS", 
+"GRDBS",
+"BVIKT",
+"BLANGDF2",
+"HOMF",
+"APGAR1",
+"APGAR5", 
+"APGAR10", 
+"VENT",
+"INTUB",
+"HJMASS",
+"ACIDOS",
+"BFLOP",
+"PARITET",
+"PARITET_F",
+"MALDER", 
+"MISSB",
+"MSGA",
+"MLGA",
+"CIVIL",
+"Cfnat",
+"Cmnat", 
+"CMFODLAND", 
+"LAN",
+"BDIAG",
+"MDIAG")
+
+
 
 #-------------------------------------------------------------------------------
-#save keyfile
-#mfr2$vårdtidFödsel <- difft
+
+
+#save 
+
+#keyfile
+#
+#mfr2$vårdtidFödsel
+#<- difft
 
 
 #keyfile = mfr[,c("lpnr_BARN","lpnr_mor")]
