@@ -40,6 +40,51 @@ if(TRUE){
   par_foralder = par_foralder[,c("lopnr","INDATUM","DIAGNOS","EKO",
                                                "OP","INDATUM", "UTDATUM",
                                                "source", "Cnation")]
+  
+  
+  # add parents 
+  kopplingBio <- read.table("Indata/Sos_20170407/SoS/Data/UT_28574_2015/U_HOGBERG_LEV_BIOFORAL.txt",
+                            sep = "\t",
+                            header = TRUE,
+                            stringsAsFactors = FALSE
+  )
+  
+  kopplingAdoptiv <- read.table("Indata/Sos_20170407/SoS/Data/UT_28574_2015/U_HOGBERG_LEV_ADOPTIVF.txt",
+                                sep = "\t",
+                                header = TRUE,
+                                stringsAsFactors = FALSE
+  )
+  
+  # order of names is important
+  names(kopplingAdoptiv) <- names(kopplingBio)
+  koppling <- rbind(kopplingBio, kopplingAdoptiv)
+  
+  # join in parent ids
+  #maltreatment_time <- merge(maltreatment_time, koppling, by.x = "lopnr", by.y = "LopNr")
+  
+  koppling_mor <- koppling %>% select(LopNr, LopNrMor) %>% 
+    rename("LopNrMorBarn" = LopNr) %>% 
+    filter(!is.na(LopNrMor)) %>% 
+    distinct()
+  
+  koppling_far <- koppling %>% select(LopNr, LopNrFar) %>% 
+    rename("LopNrFarBarn" = LopNr) %>% 
+    filter(!is.na(LopNrFar)) %>% 
+    distinct()
+  
+  
+  tmp <- merge(par_foralder, koppling_far, by.x = "lopnr", by.y = "LopNrFar", all.x = TRUE, allow.cartesian = TRUE) 
+  tmp <- merge(tmp, koppling_mor, by.x = "lopnr", by.y = "LopNrMor", all.x = TRUE, allow.cartesian = TRUE)
+  
+  tmp <-
+    tmp %>% 
+    mutate(LopNrBarn = ifelse(is.na(LopNrMorBarn), LopNrFarBarn, LopNrMorBarn)) %>% 
+    select(-LopNrFarBarn, -LopNrMorBarn)
+  #--------------------------- slut insert parent lopnr ------------------------
+  
+  par_foralder <- tmp
+  
+  
   saveRDS(par_foralder, "Output/3_par_foralder.rds")
 }else{
   par_foralder <- readRDS("Output/3_par_foralder.rds")

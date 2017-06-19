@@ -12,7 +12,7 @@ FORALDRAR = TRUE
 MFR = TRUE
 PAR = TRUE
 MALTREATMENT = TRUE
-MERGE = FALSE
+MERGE = TRUE
 ncores <- detectCores() - 1
   
 
@@ -129,7 +129,7 @@ if(FORALDRAR){
     
     out <- 
       outlist %>% 
-      Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="lopnr"), .)
+      Reduce(function(dtf1,dtf2) left_join(dtf1,dtf2,by="LopNrBarn"), .)
     
     saveRDS(out, "Output/6_par_foralder.rds")
     rm(par_foralder)
@@ -206,7 +206,6 @@ if(MERGE){
   
   
   par_barn <- readRDS("Output/6_par_barn.rds")
-  
   par_barn <- dplyr::rename(par_barn, BLOPNR = lopnr)
   
   
@@ -216,6 +215,7 @@ if(MERGE){
   
   par_foralder <- readRDS("Output/6_par_foralder.rds")
   par_foralder <- dplyr::rename(par_foralder, LopNrForalder = lopnr)
+  
   
   setDT(mfr, key = "BLOPNR")
   setDT(par_barn, key = "BLOPNR")

@@ -11,8 +11,10 @@ system.time({source("Program/2_par_barn.R", encoding="utf-8")}) #s
 system.time({source("Program/3_par_foralder.R", encoding="utf-8")}) #s
 system.time({source("Program/4_SCB.R", encoding="utf-8")}) #s
 system.time({source("Program/5_BU.R", encoding="utf-8")}) #s
-system.time({source("Program/6_diagnoses.R", encoding="utf-8")}) #s
+system.time({source("Program/6_diagnoses.R", encoding="utf-8")}) #s2220 without mnerge
 system.time({source("Program/7_ATC.R", encoding="utf-8")}) #s
+system.time({source("Program/8_dod.R", encoding="utf-8")}) #s
+system.time({source("Program/9_tidsdiagnoser.R", encoding="utf-8")}) #s
 
 
 

@@ -4,6 +4,11 @@ analysdata <- readRDS("Output/6_analysdata.rds")
 scb <- readRDS("Output/4_SCB.rds")
 bu <- readRDS("Output/5_BU.rds")
 atc <- readRDS("Output/7_ATC.rds")
+dod <- readRDS("Output/8_dod.rds")
+tidsdiagnoser <- readRDS("Output/9_tidsdiagnoser.rds")
+names(tidsdiagnoser) <- gsub(" ", "", names(tidsdiagnoser))
+
+
 
 sum(table(unique(scb$LopNr))) == nrow(scb) # föräldrars utbildning
 sum(table(unique(bu$LopNr))) == nrow(bu) # barns insatser
@@ -54,22 +59,25 @@ names(scb) <- c("LopNrMor", "MOR_Utbildningsniva")
 analysdata_bu_atc <- merge(analysdata_bu_atc, scb, by = "LopNrMor", all.x = TRUE)  
 
 names(scb) <- c("LopNrFar", "FAR_Utbildningsniva")
-analysdata_bu_atc_scb <- merge(analysdata_bu_atc, scb, by = "LopNrFar", all.x = TRUE)  
+analysdata_bu_atc_scb <- merge(analysdata_bu_atc, scb, by = "LopNrFar", all.x = TRUE) 
+
+
+# join in death data
+analysdata_bu_atc_scb_dod <- merge(analysdata_bu_atc_scb, dod, by = "LopNrBarn", all.x = TRUE) 
+
+# join in time dependent diags
+analysdata_bu_atc_scb_dod_tidsdiagnoser <- merge(analysdata_bu_atc_scb_dod, tidsdiagnoser, by = "LopNrBarn", all.x = TRUE) 
+
 
 # fyll ut med nollor 
 zero_vars <- c(
 "LVUantalinsatser", 
 "LVUvarddagartotalt", 
-"FARLMefter", 
-"FARLMinnan", 
-"FARSSRIefter", 
-"FARSSRIinnan", 
-"MORLMefter", 
-"MORLMinnan", 
-"MORSSRIefter", 
-"MORSSRIinnan", 
 "FARADHD", 
-"MORADHD")
+"MORADHD",
+grep("LopNrBarn",names(tidsdiagnoser), invert = TRUE, value = TRUE),
+grep("LopNrBarn",names(atc), invert = TRUE, value = TRUE)
+)
 
 
 rm_vars <- c(
@@ -79,13 +87,15 @@ rm_vars <- c(
 "n_SDH_T_1_11"
 )
 
-keep_vars <- names(analysdata_bu_atc_scb)[!(names(analysdata_bu_atc_scb) %in% rm_vars)]
+zero_vars <- zero_vars[!duplicated(zero_vars)]
 
-analysdata_bu_atc_scb  <- data.frame(analysdata_bu_atc_scb)
-analysdata_bu_atc_scb[,zero_vars] <- lapply(analysdata_bu_atc_scb[,zero_vars], function(x) {ifelse(is.na(x), 0, x)})
+keep_vars <- names(analysdata_bu_atc_scb_dod_tidsdiagnoser)[!(names(analysdata_bu_atc_scb_dod_tidsdiagnoser) %in% rm_vars)]
 
+analysdata_bu_atc_scb_dod_tidsdiagnoser <- data.frame(analysdata_bu_atc_scb_dod_tidsdiagnoser)
 
-out <- analysdata_bu_atc_scb[, keep_vars]
+analysdata_bu_atc_scb_dod_tidsdiagnoser[,zero_vars] <- lapply(analysdata_bu_atc_scb_dod_tidsdiagnoser[,zero_vars], function(x) {ifelse(is.na(x), 0, x)})
+
+out <- analysdata_bu_atc_scb_dod_tidsdiagnoser[, keep_vars]
 out$Longboneinteskaft	<- ifelse(out$n_markerLongbone == 1 & out$n_frakturskaftlongbone == 0, 1, 0)
 #out$Frakturutolycka		<- ifelse(out$n_a Anyfracture = 1 &  n_Fallolycka = 0 Fracturenoacc=1. EXECUTE.
 
@@ -114,7 +124,7 @@ if(TRUE){
   #})
   
   system.time({
-    write.table(out_numeric, "Output/8_analysdata_numeric.txt",
+    write.table(out_numeric, "Output/10_analysdata_numeric.txt",
                 sep = "\t",
                 row.names = FALSE,
                 na = "") 

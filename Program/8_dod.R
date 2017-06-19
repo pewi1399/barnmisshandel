@@ -25,6 +25,8 @@ dod <-
 
 names(dod) <- paste0(names(dod), "_dodbarn")
 
-dod <- 
+out <- 
   dod %>% 
 rename("LopNrBarn" = LopNr_dodbarn) 
+
+saveRDS(out,"Output/8_dod.rds")
