@@ -1,3 +1,4 @@
+rm(list=ls())
 library(dplyr)
 
 analysdata <- readRDS("Output/6_analysdata.rds")
@@ -82,9 +83,9 @@ grep("LopNrBarn",names(atc), invert = TRUE, value = TRUE)
 
 rm_vars <- c(
 "n_NeoSDH7",
-"n_NEOSDH28",
-"n_SDH_IT_1_11",
-"n_SDH_T_1_11"
+"n_NEOSDH28"#,
+#"n_SDH_IT_1_11",
+#"n_SDH_T_1_11"
 )
 
 zero_vars <- zero_vars[!duplicated(zero_vars)]
@@ -101,7 +102,7 @@ out$Longboneinteskaft	<- ifelse(out$n_markerLongbone == 1 & out$n_frakturskaftlo
 
 out <- 
 out %>% 
-  select(-MFLOP,-BFLOP,-Mlopnr, -BDIAG, -MDIAG)
+  select(-Mlopnr.x, -Mlopnr.y, -BFLOP, -BDIAG, -MDIAG)
 
 out$CMFODLAND <- as.character(out$CMFODLAND) 
 out$Cfnat <- as.character(out$Cfnat)
@@ -122,6 +123,8 @@ if(TRUE){
   #              row.names = FALSE,
   #              na = "") 
   #})
+  
+
   
   system.time({
     write.table(out_numeric, "Output/10_analysdata_numeric.txt",

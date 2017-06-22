@@ -122,7 +122,7 @@ if(FORALDRAR){
     clusterExport(cl, c("parallelDiagnoses", "par_foralder", "applySearch"))
     
     system.time({
-      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_parforalder", type = "par", dataset = par_foralder, diagvar = "DIAGNOS")
+      outlist <- parLapply(cl, ll, parallelDiagnoses, suffix = "_parforalder", type = "par", dataset = par_foralder, diagvar = "DIAGNOS", byvariable = "LopNrBarn")
     })
     
     parallel::stopCluster(cl)
@@ -214,7 +214,7 @@ if(MERGE){
   
   
   par_foralder <- readRDS("Output/6_par_foralder.rds")
-  par_foralder <- dplyr::rename(par_foralder, LopNrForalder = lopnr)
+  par_foralder <- dplyr::rename(par_foralder, BLOPNR = LopNrBarn)
   
   
   setDT(mfr, key = "BLOPNR")
@@ -249,7 +249,7 @@ if(MERGE){
   
   # get rid of variables that are not derived from 
   metadataSingle <- metadata %>% 
-    filter(Barnmissh == 1 & derived == "nej")
+    filter(Barnmissh == 1 & derived == "nej" & Group != "foralder_barnmisshandel")
    
    
   analysdata[,(metadataSingle$variable):=lapply(metadataSingle$variable, 
@@ -283,16 +283,16 @@ if(MERGE){
     select(-BLOPNR, 
            -BDIAG, 
            -MDIAG, 
-           -Mlopnr, 
+           #-Mlopnr, 
            -SJUKHUS_S, 
-           -MFLOP, 
+           #-MFLOP, 
            -BFLOP, 
            -CMFODLAND,
            -Cfnat,
            -Cmnat
            ) %>% 
     group_by(TYPE, FODAR) %>%
-    summarise_each(funs(sum)) %>% 
+    summarise_all(funs(sum)) %>% 
     data.frame %>% 
     arrange(FODAR, TYPE)
   
@@ -324,7 +324,7 @@ if(MERGE){
       mutate(period = ifelse(FODAR > breakYear, paste0(breakYear+1,"_",upperYear), paste0(lowerYear,"_",breakYear))) %>% 
       select(-FODAR) %>% 
       group_by(period, TYPE) %>% 
-      summarise_each(funs(sum(., na.rm = TRUE))) %>% 
+      summarise_all(funs(sum(., na.rm = TRUE))) %>% 
       gather(variabel, antal, -TYPE, -period, -n) %>% 
       mutate(per_100000 = round(100000 * antal/n, 2)) %>%
       gather(key, value, -TYPE, -period, -n, -variabel) %>% 

@@ -1,6 +1,6 @@
 if(TRUE){ # metadata and diagnosis functions
   # diagnoses
-   metadata <- openxlsx::read.xlsx("Indata/dataDictionary_170616.xlsx", sheet = "barnmissh") 
+   metadata <- openxlsx::read.xlsx("Indata/dataDictionary_170620.xlsx", sheet = "barnmissh") 
    
    metadata$variable <- paste0("n_", metadata$variable)
    # collapse all code variables
@@ -29,17 +29,17 @@ if(TRUE){ # metadata and diagnosis functions
 
 #------------------------------- parallelisation -------------------------------
 
-parallelDiagnoses <- function(metadata_tmp, dataset= NULL, suffix , type = NULL, diagvar){
+parallelDiagnoses <- function(metadata_tmp, dataset= NULL, suffix , type = NULL, diagvar, byvariable = "lopnr"){
   library(data.table)
   setDT(dataset)
   
   dataset[,(paste0(metadata_tmp$variable, suffix)):=lapply(metadata_tmp$search, applySearch, variable = dataset[,diagvar, with = FALSE][[1]]),]
   
   if(type == "par"){
-    dataset <- dataset[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = "lopnr", .SDcols = paste0(metadata_tmp$variable, suffix)]
+    dataset <- dataset[,lapply(.SD, function(x){ifelse(sum(x, na.rm = TRUE)>0,1,0)}), by = byvariable, .SDcols = paste0(metadata_tmp$variable, suffix)]
     dataset <- data.frame(dataset)
     
-    out <- dataset[,c("lopnr", paste0(metadata_tmp$variable, suffix))]
+    out <- dataset[,c(byvariable, paste0(metadata_tmp$variable, suffix))]
   }else if (type == "mfr"){
     dataset <- data.frame(dataset)
     
