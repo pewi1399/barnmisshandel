@@ -210,9 +210,12 @@ if(FALSE){
     pathdata <- out[, path_vars]
     
     pathdata <- pathdata %>% 
-      filter(FODAR >1996 & TYPE == "CASE")
+      filter(FODAR >1996 )
     
-    openxlsx::write.xlsx(pathdata, "Output/pathData20170707.xlsx")
+    #openxlsx::write.xlsx(pathdata, "Output/pathData20170717.xlsx")
+    write.csv2(pathdata, "Output/pathData20170717.csv",
+               na = "",
+               row.names = FALSE)
     
   }
 

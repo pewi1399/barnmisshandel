@@ -145,7 +145,7 @@ path_vars <- path_vars[!duplicated(path_vars)]
 
 incdata <- 
 analysdata %>% 
-  filter(TYPE == "CASE") %>% 
+  #filter(TYPE == "CASE") %>% 
   filter(period == "1997_2007" | period == "2008_2014") %>% 
   select(-TYPE)
 
@@ -172,13 +172,31 @@ incdata <- tmp1 %>%
   mutate(n = ifelse(is.na(n2), n1, n2)) %>% 
   select(-n1, -n2)
 
+# calculate n for mother swedish etc by using what we know about cases and controls
+tmp <-
+incdata %>% 
+  group_by(period, key) %>% 
+  summarise(n3 = sum(value)) %>% 
+  filter(key %in% c("new_twins", "motherSwedish", "new_small", "new_preterm")) %>% 
+  ungroup()
+
+tmp1 <- merge(incdata, tmp, by = c("period", "key"), all.x = TRUE)
+
+incdata <- tmp1 %>% 
+  mutate(n = ifelse(is.na(n3), n, n3)) %>% 
+  select(-n3)
+
+
 incidences <- epi.conf(as.matrix(incdata[,c("value", "n")]),  ctype = "inc.rate", method = "exact") * 100000
 
 out <- cbind(incdata, incidences)
 
-out$CI <- paste0("(",round(out$lower, 2), " - ", round(out$upper,2), ")")
+out$konfidensintervall <- paste0("(",round(out$lower, 2), " - ", round(out$upper,2), ")")
 
 setDT(out, key = c("key", "period", "maltreatment"))
+
+names(out) <- c("period", "key", "maltreatment", "antal", "n", "estimat", "undre gräns", 
+                "övre gräns", "konfidensintervall")
 
 write.xlsx(out, "Output/incindenstal_per100000.xlsx")
 #-------------------------------------------------------------------------------
