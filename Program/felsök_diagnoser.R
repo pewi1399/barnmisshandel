@@ -18,13 +18,12 @@ library(parallel)
 
 source("Program/functions.R", encoding = "utf-8")
 
+
+# ange de variabler som skall beräknas
+test_variabler <- c("n_SDH_IT_1_11", "n_SDH_T_1_11","n_Alla_SDH_1_11" )
+
 metadata_fel <- metadata %>% 
-  filter(variable %in% c("n_Alla_SDH_1_11",
-         "n_subduralBlodningTrauma", 
-         "n_kramperAlla", 
-         "n_markerLongbone", 
-         "n_markerIntracranial")
-         )
+  filter(variable %in% test_variabler)
 
 #make each code a diagnosis of its own
 x = "n_subduralBlodningTrauma"
@@ -132,9 +131,5 @@ checkDiagnose <- function(x, metadata){
   openxlsx::write.xlsx(out, paste0("Output/", x, "_med_underdiagnoser.xlsx"))
 }
 
-lapply(c("n_Alla_SDH_1_11",
-       "n_subduralBlodningTrauma", 
-       "n_kramperAlla", 
-       "n_markerLongbone", 
-       "n_markerIntracranial"),
+lapply(test_variabler,
        checkDiagnose, metadata = metadata)
