@@ -78,4 +78,3 @@ bu_insats <- merge(bu_insats, tmp, by = "LopNr")
 out <- merge(bu_insats, bu_barn, by = "LopNr")
 
 saveRDS(out, "Output/5_BU.rds")
-

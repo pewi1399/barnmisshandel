@@ -1,6 +1,6 @@
 if(TRUE){ # metadata and diagnosis functions
   # diagnoses
-   metadata <- openxlsx::read.xlsx("Indata/dataDictionary_170620.xlsx", sheet = "barnmissh") 
+   metadata <- openxlsx::read.xlsx("Indata/dataDictionary_170722.xlsx", sheet = "barnmissh") 
    
    metadata$variable <- paste0("n_", metadata$variable)
    # collapse all code variables

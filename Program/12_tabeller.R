@@ -8,7 +8,7 @@ library(tidyr)
 
 options(scipen = 999)
 
-?epiR::epi.conf
+
 m <- matrix( c(10,5, 100, 100), ncol = 2) 
 epi.conf(m, ctype = "inc.rate", method = "exact")
 
@@ -151,6 +151,7 @@ analysdata %>%
 
 incdata <- incdata[,path_vars]
 
+incdata$motherForeign <- ifelse(incdata$motherSwedish == 1, 0, 1)
 
 # calculate total cases
 incdata <- 
@@ -177,7 +178,7 @@ tmp <-
 incdata %>% 
   group_by(period, key) %>% 
   summarise(n3 = sum(value)) %>% 
-  filter(key %in% c("new_twins", "motherSwedish", "new_small", "new_preterm")) %>% 
+  filter(key %in% c("new_twins", "motherSwedish", "motherForeign", "new_small", "new_preterm")) %>% 
   ungroup()
 
 tmp1 <- merge(incdata, tmp, by = c("period", "key"), all.x = TRUE)
